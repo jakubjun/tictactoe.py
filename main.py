@@ -1,7 +1,9 @@
 from enum import Enum
+from typing import Set
 
 WIDTH = 10
 HEIGHT = 10
+N_TO_WIN = 2
 
 
 class TicTacToeRangeException(Exception):
@@ -19,12 +21,13 @@ class TicTacToeOccupiedException(Exception):
 class TicTacToeSymbols(Enum):
     CROSS = "x"
     CIRCLE = "o"
+    EMPTY = " "
 
 
 class TicTacToe:
     should_exit: bool = False
-    symbol_at_turn: TicTacToeSymbols = TicTacToeSymbols.CROSS.value
-    symbols_on_board = {}
+    symbol_at_turn: TicTacToeSymbols = TicTacToeSymbols.CROSS
+    symbols_on_board: dict[tuple[int, int], TicTacToeSymbols] = {}
     is_first_render = True
 
     def __init__(self, width: int, height: int) -> None:
@@ -39,7 +42,21 @@ class TicTacToe:
         for row in range(self.height):
             print(f"{row}|", end="")
             for column in range(self.width):
-                print(self.get_symbol_at_coord((row, column)), end="")
+                print(self.get_symbol_at_coord((row, column)).value, end="")
+            print()
+
+    def print_winning_set(self, winning_set):
+        print("  ", end="")
+        for column in range(self.width):
+            print(column, end="")
+        print()
+        for row in range(self.height):
+            print(f"{row}|", end="")
+            for column in range(self.width):
+                print(
+                    self.symbol_at_turn.value if (row, column) in winning_set else " ",
+                    end="",
+                )
             print()
 
     def get_coords_from_user(self) -> tuple[int, int]:
@@ -50,7 +67,7 @@ class TicTacToe:
         except ValueError:
             raise TicTacToeParseException
 
-    def put_symbol_to_coords(self, coords: (int, int)) -> None:
+    def put_symbol_to_coords(self, coords: tuple[int, int]) -> None:
         x, y = coords
         if (x >= self.height) or (y >= self.width):
             raise TicTacToeRangeException
@@ -62,17 +79,56 @@ class TicTacToe:
 
         self.symbols_on_board[coords] = self.symbol_at_turn
 
-    def get_symbol_at_coord(self, coords: (int, int)) -> TicTacToeSymbols:
-        return self.symbols_on_board.get(coords, " ")
+    def get_symbol_at_coord(self, coords: tuple[int, int]) -> TicTacToeSymbols:
+        return self.symbols_on_board.get(coords, TicTacToeSymbols.EMPTY)
 
-    def check_game_end(self) -> bool:
-        pass
+    def find_winning_set(self) -> Set[tuple[int, int]]:
+        found: Set[tuple[int, int]] = set()
+        for coords, first_symbol in self.symbols_on_board.items():
+            # check only to right, to lower right and to bottom
+            found.add(coords)
+            for _ in range(N_TO_WIN):
+                next_coords = (coords[0], coords[1] + 1)
+                symbol = self.get_symbol_at_coord(next_coords)
+                found.add(next_coords)
+                if symbol != first_symbol:
+                    found.clear()
+                    break
+
+            if len(found) != 0:
+                return found
+
+            found.add(coords)
+            for _ in range(N_TO_WIN):
+                next_coords = (coords[0] + 1, coords[1] + 1)
+                symbol = self.get_symbol_at_coord(next_coords)
+                found.add(next_coords)
+                if symbol != first_symbol:
+                    found.clear()
+                    break
+
+            if len(found) != 0:
+                return found
+
+            found.add(coords)
+            for _ in range(N_TO_WIN):
+                next_coords = (coords[0] + 1, coords[1])
+                symbol = self.get_symbol_at_coord(next_coords)
+                found.add(next_coords)
+                if symbol != first_symbol:
+                    found.clear()
+                    break
+
+            if len(found) != 0:
+                return found
+
+        return found
 
     def switch_turns(self) -> None:
-        if self.symbol_at_turn == TicTacToeSymbols.CROSS.value:
-            self.symbol_at_turn = TicTacToeSymbols.CIRCLE.value
+        if self.symbol_at_turn == TicTacToeSymbols.CROSS:
+            self.symbol_at_turn = TicTacToeSymbols.CIRCLE
         else:
-            self.symbol_at_turn = TicTacToeSymbols.CROSS.value
+            self.symbol_at_turn = TicTacToeSymbols.CROSS
 
     def game_loop(self) -> None:
         while not self.should_exit:
@@ -80,7 +136,7 @@ class TicTacToe:
                 self.is_first_render = False
             else:
                 print("----------")
-            print(f"it's now {self.symbol_at_turn}'s turn")
+            print(f"it's now {self.symbol_at_turn.value}'s turn")
             self.print_board()
             try:
                 coords = self.get_coords_from_user()
@@ -96,7 +152,13 @@ class TicTacToe:
             except TicTacToeOccupiedException:
                 print("the field is occupied! select a different one")
                 continue
-            self.check_game_end()
+
+            winning_dict = self.find_winning_set()
+            if len(winning_dict) > 0:
+                self.should_exit = True
+                print("----------")
+                print(f"game over, {self.symbol_at_turn.value} is a winner!")
+                self.print_winning_set(winning_dict)
             self.switch_turns()
 
 
