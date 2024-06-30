@@ -1,9 +1,17 @@
 from enum import Enum
 from typing import Set
 
+
+class TicTacToeSymbols(Enum):
+    CROSS = "x"
+    CIRCLE = "o"
+    EMPTY = " "
+
+
 WIDTH = 10
 HEIGHT = 10
-N_TO_WIN = 2
+N_TO_WIN = 5
+STARTING_SYMBOL = TicTacToeSymbols.CROSS
 
 
 class TicTacToeRangeException(Exception):
@@ -18,21 +26,23 @@ class TicTacToeOccupiedException(Exception):
     pass
 
 
-class TicTacToeSymbols(Enum):
-    CROSS = "x"
-    CIRCLE = "o"
-    EMPTY = " "
-
-
 class TicTacToe:
+    height: int
+    width: int
+    n_to_win: int
     should_exit: bool = False
-    symbol_at_turn: TicTacToeSymbols = TicTacToeSymbols.CROSS
-    symbols_on_board: dict[tuple[int, int], TicTacToeSymbols] = {}
+    symbol_at_turn: TicTacToeSymbols
+    symbols_on_board: dict[tuple[int, int], TicTacToeSymbols]
     is_first_render = True
 
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(
+        self, width: int, height: int, n_to_win: int, starting_symbol: TicTacToeSymbols
+    ) -> None:
         self.width = width
         self.height = height
+        self.n_to_win = n_to_win
+        self.symbol_at_turn = starting_symbol
+        self.symbols_on_board = {}
 
     def print_board(self) -> None:
         print("  ", end="")
@@ -83,44 +93,28 @@ class TicTacToe:
         return self.symbols_on_board.get(coords, TicTacToeSymbols.EMPTY)
 
     def find_winning_set(self) -> Set[tuple[int, int]]:
+        directions = [(0, 1), (1, 1), (1, 0)]
+
         found: Set[tuple[int, int]] = set()
+
         for coords, first_symbol in self.symbols_on_board.items():
             # check only to right, to lower right and to bottom
-            found.add(coords)
-            for _ in range(N_TO_WIN):
-                next_coords = (coords[0], coords[1] + 1)
-                symbol = self.get_symbol_at_coord(next_coords)
-                found.add(next_coords)
-                if symbol != first_symbol:
-                    found.clear()
-                    break
+            for dir_change in directions:
+                found.add(coords)
 
-            if len(found) != 0:
-                return found
+                for i in range(self.n_to_win):
+                    next_coords = (
+                        coords[0] + dir_change[0] * i,
+                        coords[1] + dir_change[1] * i,
+                    )
+                    symbol = self.get_symbol_at_coord(next_coords)
+                    if symbol != first_symbol:
+                        found.clear()
+                        break
+                    found.add(next_coords)
 
-            found.add(coords)
-            for _ in range(N_TO_WIN):
-                next_coords = (coords[0] + 1, coords[1] + 1)
-                symbol = self.get_symbol_at_coord(next_coords)
-                found.add(next_coords)
-                if symbol != first_symbol:
-                    found.clear()
-                    break
-
-            if len(found) != 0:
-                return found
-
-            found.add(coords)
-            for _ in range(N_TO_WIN):
-                next_coords = (coords[0] + 1, coords[1])
-                symbol = self.get_symbol_at_coord(next_coords)
-                found.add(next_coords)
-                if symbol != first_symbol:
-                    found.clear()
-                    break
-
-            if len(found) != 0:
-                return found
+                if len(found) != 0:
+                    return found
 
         return found
 
@@ -163,5 +157,5 @@ class TicTacToe:
 
 
 if __name__ == "__main__":
-    b = TicTacToe(WIDTH, HEIGHT)
+    b = TicTacToe(WIDTH, HEIGHT, N_TO_WIN, STARTING_SYMBOL)
     b.game_loop()
